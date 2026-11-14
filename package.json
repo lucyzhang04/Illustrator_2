@@ -1,0 +1,14 @@
+{
+  "name": "doodle-words",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Read a word, draw it, and Claude Opus turns the drawings into a short movie. For first graders.",
+  "scripts": {
+    "dev": "node scripts/dev-server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0"
+  },
+  "engines": { "node": ">=20" }
+}

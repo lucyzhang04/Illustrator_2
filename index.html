@@ -19,7 +19,7 @@
 
         <!-- WORKSPACE (sits underneath; revealed by the page flip) -->
         <section class="layer workspace" id="workspace" aria-label="Reading and drawing pages">
-          <div class="paper left" id="wsLeft">
+          <div class="paper left ws-left" id="wsLeft">
             <div class="ws-top">
               <span class="hello" id="hello">Hi!</span>
               <span class="stars" id="stars" aria-label="Words drawn"></span>
@@ -36,7 +36,7 @@
             <span class="page-num left-num" id="numLeft">1</span>
           </div>
 
-          <div class="paper right" id="wsRight">
+          <div class="paper right ws-right" id="wsRight">
             <div class="draw-head">
               <span class="draw-title">Draw it!</span>
               <div class="tools" role="toolbar" aria-label="Drawing tools">
@@ -50,7 +50,7 @@
             </div>
             <div class="crayons" id="crayons" role="radiogroup" aria-label="Crayon colors"></div>
             <div class="canvas-wrap" id="canvasWrap">
-              <canvas id="pad" width="1200" height="900" aria-label="Drawing box"></canvas>
+              <canvas id="pad" class="pad" width="1200" height="900" aria-label="Drawing box"></canvas>
             </div>
             <button class="btn next-btn corner-right" id="nextWord" type="button">Next <span aria-hidden="true">➜</span></button>
             <span class="page-num right-num" id="numRight">2</span>
@@ -85,7 +85,7 @@
               <input id="nameInput" name="name" maxlength="16" placeholder="My name is…" spellcheck="false" autocapitalize="words" enterkeyhint="next" />
             </div>
           </form>
-          <button class="btn next-btn corner-right" id="nameNext" type="button" form="nameCard">Next <span aria-hidden="true">➜</span></button>
+          <button class="btn next-btn corner-right" id="nameNext" type="submit" form="nameCard">Next <span aria-hidden="true">➜</span></button>
           <button class="skip" id="skipIntro" type="button">skip ⏩</button>
         </section>
 
