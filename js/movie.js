@@ -384,6 +384,7 @@
     canvas.hidden = false; video.hidden = true; video.removeAttribute("src");
     $("#making").classList.remove("hide");
     $("#replay").disabled = true; $("#saveVideo").disabled = true;
+    $("#pauseBtn").hidden = true; $("#pausedOverlay").hidden = true;
     $("#movieNote").textContent = "";
     $("#movieTitle").textContent = `${name}'s movie!`;
 
@@ -420,6 +421,9 @@
 
   function play(session, record) {
     const canvas = $("#movieCanvas"), ctx = canvas.getContext("2d");
+    session.done = false;
+    const pb = $("#pauseBtn"); pb.hidden = false; pb.textContent = "⏸ Pause"; pb.setAttribute("aria-pressed", "false");
+    $("#pausedOverlay").hidden = true;
     const { segs, total } = timeline(session.sb);
     const off = document.createElement("canvas"); off.width = W; off.height = H; const octx = off.getContext("2d");
     const prev = document.createElement("canvas"); prev.width = W; prev.height = H; const pctx = prev.getContext("2d");
@@ -449,11 +453,22 @@
     if (record && !session.recorder) $("#movieNote").textContent = "This browser can't save movies, but you can save the drawings!";
     session.stopMusic = Sound.music(dest, total, session.sb.music);
 
-    const start = performance.now();
+    // A pausable clock: time only moves forward while playing.
+    const clock = { t: 0, last: performance.now() };
+    session.clock = clock;
+    session.paused = false;
+    session.segs = segs;
+    session.events = []; // [{ at (timeline seconds), fn, done }]
+    const at = (time, fn) => session.events.push({ at: time, fn, done: false });
     const TR = .55; // page-turn transition length
     const frame = () => {
       if (session.cancelled) return;
-      const t = (performance.now() - start) / 1000;
+      const now = performance.now();
+      if (!session.paused) clock.t += (now - clock.last) / 1000;
+      clock.last = now;
+      const t = clock.t;
+      if (session.paused) { session.raf = requestAnimationFrame(frame); return; }
+      session.events.forEach(ev => { if (!ev.done && t >= ev.at) { ev.done = true; ev.fn(); } });
       if (t >= total) {
         const last = segs[segs.length - 1];
         renderAt(ctx, session, last, last.d);
@@ -465,9 +480,10 @@
       if (idx !== lastIdx) {
         if (lastIdx >= 0) { const ps = segs[lastIdx]; renderAt(pctx, session, ps, ps.d); Sound.flip(dest); }
         lastIdx = idx;
-        if (seg.kind === "scene") { setTimeout(() => !session.cancelled && Sound.say(seg.sc.word, { rate: .8 }).then(() => !session.cancelled && Sound.say(seg.sc.caption, { rate: .85, interrupt: false })), 400); Sound.pop(dest, .35); }
-        if (seg.kind === "title") setTimeout(() => !session.cancelled && Sound.say(session.sb.title, { rate: .9 }), 300);
-        if (seg.kind === "end") setTimeout(() => !session.cancelled && Sound.say("The end! " + session.sb.ending.caption, { rate: .9 }), 300);
+        const live = () => !session.cancelled && !session.paused;
+        if (seg.kind === "scene") { at(t + .4, () => Sound.say(seg.sc.word, { rate: .8 }).then(() => live() && Sound.say(seg.sc.caption, { rate: .85, interrupt: false }))); Sound.pop(dest, .35); }
+        if (seg.kind === "title") at(t + .3, () => Sound.say(session.sb.title, { rate: .9 }));
+        if (seg.kind === "end") at(t + .3, () => Sound.say("The end! " + session.sb.ending.caption, { rate: .9 }));
       }
       if (idx > 0 && lt < TR) {
         // fake 3D page turn: old right page folds onto the seam, new left page unfolds
@@ -493,7 +509,37 @@
     frame();
   }
 
+  // ---------- pause / play ----------
+  function currentSeg(session) {
+    return session.segs && session.segs.find(sg => session.clock.t >= sg.start && session.clock.t < sg.start + sg.d);
+  }
+  function setPaused(paused) {
+    const s = run;
+    if (!s || !s.clock || s.done || s.paused === paused) return;
+    s.paused = paused;
+    const ac = Sound.ctx();
+    if (paused) {
+      if ("speechSynthesis" in window) speechSynthesis.cancel();
+      if (s.recorder && s.recorder.state === "recording") { try { s.recorder.pause(); } catch (e) {} }
+      if (ac) ac.suspend();
+    } else {
+      if (ac) ac.resume();
+      if (s.recorder && s.recorder.state === "paused") { try { s.recorder.resume(); } catch (e) {} }
+      // read the page again so they can follow along
+      const sg = currentSeg(s);
+      if (sg && sg.kind === "scene") Sound.say(sg.sc.caption, { rate: .85 });
+    }
+    s.clock.last = performance.now();
+    $("#pausedOverlay").hidden = !paused;
+    const b = $("#pauseBtn");
+    b.textContent = paused ? "▶ Play" : "⏸ Pause";
+    b.setAttribute("aria-pressed", String(paused));
+  }
+  function togglePause() { if (run && run.clock && !run.done) setPaused(!run.paused); }
+
   function finish(session) {
+    session.done = true;
+    $("#pauseBtn").hidden = true;
     $("#making").classList.add("hide");
     $("#replay").disabled = false;
     if (session.recorder && session.recorder.state !== "inactive") setTimeout(() => { try { session.recorder.stop(); } catch (e) {} }, 300);
@@ -503,6 +549,7 @@
     const s = run; if (!s) return;
     if (s.blob) {
       const v = $("#movieVideo"); const c = $("#movieCanvas");
+      $("#pausedOverlay").hidden = true; // the video has its own pause button
       if (!s.url) s.url = URL.createObjectURL(s.blob);
       v.src = s.url; v.hidden = false; c.hidden = true; v.currentTime = 0; v.play().catch(() => {});
       return;
@@ -558,15 +605,24 @@
     if (run.url) URL.revokeObjectURL(run.url);
     if ("speechSynthesis" in window) speechSynthesis.cancel();
     const v = $("#movieVideo"); v.pause();
+    if (run.paused) { const ac = Sound.ctx(); if (ac) ac.resume(); }
+    $("#pausedOverlay").hidden = true;
     $("#movie").hidden = true;
     run = null;
   }
 
   $("#replay").onclick = replay;
+  $("#pauseBtn").onclick = togglePause;
+  $("#pausedOverlay").onclick = () => setPaused(false);
+  $("#movieCanvas").addEventListener("click", togglePause);
   $("#saveVideo").onclick = saveVideo;
   $("#saveDrawings").onclick = saveDrawings;
   $("#movie").addEventListener("click", (e) => { if (e.target.id === "movie") close(); });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && run) close(); });
+  document.addEventListener("keydown", (e) => {
+    if (!run) return;
+    if (e.key === "Escape") close();
+    if (e.key === " " && run.clock && !run.done && !$("#movie").hidden) { e.preventDefault(); togglePause(); }
+  });
 
   window.Movie = { open, close, _sanitize: sanitize };
 })();

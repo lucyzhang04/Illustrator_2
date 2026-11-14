@@ -32,21 +32,23 @@
               </div>
             </div>
             <p class="sentence" id="sentence"></p>
-            <button class="btn done-btn corner-left" id="doneBtn" type="button">I'm done! <span aria-hidden="true">🎬</span></button>
+            <button class="btn back-btn corner-left" id="backBtn" type="button"><span aria-hidden="true">⬅</span> Back</button>
             <span class="page-num left-num" id="numLeft">1</span>
           </div>
 
           <div class="paper right ws-right" id="wsRight">
             <div class="draw-head">
               <span class="draw-title">Draw it!</span>
-              <div class="tools" role="toolbar" aria-label="Drawing tools">
-                <button class="tool" data-size="6" type="button" aria-label="Thin crayon"><i style="width:6px;height:6px"></i></button>
-                <button class="tool active" data-size="14" type="button" aria-label="Medium crayon"><i style="width:11px;height:11px"></i></button>
-                <button class="tool" data-size="28" type="button" aria-label="Fat crayon"><i style="width:17px;height:17px"></i></button>
-                <button class="tool" id="eraser" type="button" aria-label="Eraser" title="Eraser">🧽</button>
-                <button class="tool" id="undo" type="button" aria-label="Undo" title="Undo">↩️</button>
-                <button class="tool" id="clear" type="button" aria-label="Clear" title="Start over">🗑️</button>
-              </div>
+              <button class="btn done-btn" id="doneBtn" type="button">I'm done! <span aria-hidden="true">🎬</span></button>
+            </div>
+            <div class="tools" role="toolbar" aria-label="Drawing tools">
+              <button class="tool" data-size="6" type="button" aria-label="Thin crayon"><i style="width:6px;height:6px"></i></button>
+              <button class="tool active" data-size="14" type="button" aria-label="Medium crayon"><i style="width:11px;height:11px"></i></button>
+              <button class="tool" data-size="28" type="button" aria-label="Fat crayon"><i style="width:17px;height:17px"></i></button>
+              <span class="tool-gap"></span>
+              <button class="tool" id="eraser" type="button" aria-label="Eraser" title="Eraser">🧽</button>
+              <button class="tool" id="undo" type="button" aria-label="Undo" title="Undo">↩️</button>
+              <button class="tool" id="clear" type="button" aria-label="Clear" title="Start over">🗑️</button>
             </div>
             <div class="crayons" id="crayons" role="radiogroup" aria-label="Crayon colors"></div>
             <div class="canvas-wrap" id="canvasWrap">
@@ -103,9 +105,11 @@
       <div class="screen">
         <canvas id="movieCanvas" width="1280" height="720"></canvas>
         <video id="movieVideo" playsinline controls hidden></video>
+        <button class="paused-overlay" id="pausedOverlay" type="button" aria-label="Play" hidden><span>▶</span></button>
         <div class="making" id="making"><span>🎬</span> Making your movie…</div>
       </div>
       <div class="movie-actions" id="movieActions">
+        <button class="btn pause-btn" id="pauseBtn" type="button">⏸ Pause</button>
         <button class="btn" id="replay" type="button" disabled>▶ Watch again</button>
         <button class="btn green" id="saveVideo" type="button" disabled>⬇ Save movie</button>
         <button class="btn blue" id="saveDrawings" type="button">⬇ Save drawings</button>

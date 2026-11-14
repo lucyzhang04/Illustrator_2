@@ -109,7 +109,8 @@
       get dirty() { return dirty; },
       toDataURL: () => canvas.toDataURL("image/png"),
       reset() { blank(); history = []; dirty = false; },
-      load(url) { const img = new Image(); img.onload = () => { blank(); ctx.drawImage(img, 0, 0, W, H); dirty = true; }; img.src = url; },
+      // Show a saved drawing again (synchronous if the image is already decoded).
+      load(img) { blank(); history = []; if (img) { ctx.drawImage(img, 0, 0, W, H); dirty = true; } else dirty = false; },
     };
   }
 

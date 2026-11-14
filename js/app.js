@@ -6,7 +6,8 @@
     queue: [],
     current: null,
     page: 1,
-    drawings: [], // { word, sentence, image (dataURL) }
+    pages: [],   // [{ entry, image (dataURL) | null, img (decoded Image) | null }]
+    idx: 0,      // which page is open
     busy: false,
   };
   try { state.name = localStorage.getItem("dw-name") || ""; } catch (e) {}
@@ -65,7 +66,7 @@
     const s = sentenceFor(entry.w);
     target.querySelector(".sentence").innerHTML = s.html;
     target.querySelector(".hello").textContent = state.name ? `Hi, ${state.name}!` : "Hi!";
-    const n = state.drawings.length;
+    const n = drawings().length;
     target.querySelector(".stars").textContent = n ? "⭐".repeat(Math.min(n, 8)) + (n > 8 ? ` ${n}` : "") : "";
     target.querySelectorAll(".page-num")[0].textContent = page * 2 - 1;
   }
@@ -74,6 +75,19 @@
     state.current = entry;
     renderWord($("#wsLeft"), entry, state.page);
     $("#numRight").textContent = state.page * 2;
+    $("#backBtn").hidden = state.page <= 1;
+  }
+
+  // Pages the child has drawn on, in page order.
+  function drawings() {
+    return state.pages.filter(p => p.image).map(p => ({ word: p.entry.w, sentence: sentenceFor(p.entry.w).text, image: p.image }));
+  }
+
+  function openPage(i) {
+    state.idx = i; state.page = i + 1;
+    const pg = state.pages[i];
+    pad.load(pg.img);
+    showWord(pg.entry);
   }
 
   // Tile taps + sound-it-out
@@ -126,19 +140,22 @@
 
   // Flip the right (or bottom) page over. `oldLayer` = snapshot of what's showing now;
   // `update()` changes the real workspace to the next state underneath.
-  function flip(oldLayer, update) {
+  // `back` = true flips the left (or top) page back to the previous page.
+  function flip(oldLayer, update, reverse = false) {
     return new Promise(resolve => {
       const spread = $("#spread");
       const pt = portrait();
-      const cover = oldLayer; // clipped to the left/top half, stays still
-      cover.style.clipPath = pt ? "inset(0 0 50% 0)" : "inset(0 50% 0 0)";
+      const cover = oldLayer; // the half that doesn't move stays still
+      cover.style.clipPath = reverse
+        ? (pt ? "inset(50% 0 0 0)" : "inset(0 0 0 50%)")
+        : (pt ? "inset(0 0 50% 0)" : "inset(0 50% 0 0)");
       cover.style.zIndex = "20";
       if (!cover.parentNode) spread.appendChild(cover);
 
       update();
 
       const leaf = document.createElement("div");
-      leaf.className = "leaf";
+      leaf.className = reverse ? "leaf rev" : "leaf";
       const front = document.createElement("div"); front.className = "face front";
       const back = document.createElement("div"); back.className = "face back";
       const frontClone = cover === $("#intro") ? cloneLayer(cover) : cover.cloneNode(true);
@@ -154,7 +171,7 @@
 
       Sound.flip();
       const axis = pt ? "rotateX" : "rotateY";
-      const end = pt ? 180 : -180;
+      const end = (pt ? 180 : -180) * (reverse ? -1 : 1);
       const dur = 900;
       const a = leaf.animate([
         { transform: `${axis}(0deg)` },
@@ -200,49 +217,57 @@
     $("#nameInput").blur();
     state.busy = true;
     await flip($("#intro"), () => {
-      showWord(nextWord());
+      state.pages = [{ entry: nextWord(), image: null, img: null }];
+      openPage(0);
       $("#workspace").removeAttribute("aria-hidden");
     });
     state.busy = false;
     Sound.say(`Hi ${state.name}! Read the word. Then draw it!`);
   });
 
-  // ---------- next word ----------
+  // ---------- next / back ----------
   function saveCurrent() {
-    if (!pad.dirty) return false;
-    const s = sentenceFor(state.current.w);
-    state.drawings.push({ word: state.current.w, sentence: s.text, image: pad.toDataURL() });
-    return true;
+    const pg = state.pages[state.idx];
+    if (!pg) return false;
+    if (pad.dirty) {
+      pg.image = pad.toDataURL();
+      const img = new Image(); img.src = pg.image; pg.img = img;
+      return true;
+    }
+    pg.image = null; pg.img = null;
+    return false;
   }
 
-  $("#nextWord").onclick = async () => {
+  async function turn(to, back) {
     if (state.busy) return;
     state.busy = true;
-    const saved = saveCurrent();
-    if (saved) Sound.pop();
+    if (saveCurrent() && !back) Sound.pop();
+    if (to >= state.pages.length) state.pages.push({ entry: nextWord(), image: null, img: null });
+    const target = state.pages[to];
+    if (target.img && !target.img.complete) await target.img.decode().catch(() => {});
     const snap = cloneLayer($("#workspace"));
-    await flip(snap, () => {
-      state.page++;
-      pad.reset();
-      showWord(nextWord());
-    });
+    await flip(snap, () => openPage(to), back);
     state.busy = false;
-  };
+  }
+  $("#nextWord").onclick = () => turn(state.idx + 1, false);
+  $("#backBtn").onclick = () => { if (state.idx > 0) turn(state.idx - 1, true); };
 
   // ---------- done → movie ----------
   $("#doneBtn").onclick = () => {
     if (state.busy) return;
-    saveCurrent() && pad.reset();
-    if (!state.drawings.length) {
+    saveCurrent();
+    const list = drawings();
+    if (!list.length) {
       toast("Draw a picture first! ✏️");
       Sound.say("Draw a picture first!");
       return;
     }
-    Movie.open({ name: state.name, drawings: state.drawings.slice() });
+    renderWord($("#wsLeft"), state.current, state.page);
+    Movie.open({ name: state.name, drawings: list });
   };
   $("#moreWords").onclick = () => {
     Movie.close();
-    $("#nextWord").click();
+    turn(state.pages.length, false); // a brand-new word
   };
 
   // ---------- misc ----------
