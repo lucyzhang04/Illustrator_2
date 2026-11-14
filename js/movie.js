@@ -292,7 +292,7 @@
     let scenes = sb.scenes.filter(s => s && Number.isInteger(s.drawing) && s.drawing >= 0 && s.drawing < drawings.length && !used.has(s.drawing) && used.add(s.drawing)).map(s => ({
       drawing: s.drawing,
       word: drawings[s.drawing].word,
-      caption: (typeof s.caption === "string" && s.caption.trim() && s.caption.length < 70) ? s.caption.trim() : drawings[s.drawing].sentence,
+      caption: (typeof s.caption === "string" && s.caption.length < 70 && new RegExp(`\\b${drawings[s.drawing].word}\\b`, "i").test(s.caption)) ? s.caption.trim() : drawings[s.drawing].sentence,
       motion: MOTIONS.includes(s.motion) ? s.motion : "pop",
       effect: EFFECTS.includes(s.effect) ? s.effect : "stars",
       bg: BGS[s.bg] ? s.bg : "blue",
